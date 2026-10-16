@@ -56,13 +56,13 @@ function starterDecks() {
 }
 
 function initialState() {
-  return { profile: null, decks: starterDecks(), classes: [], usage: {}, results: [], plan: 'free' };
+  return { profile: null, decks: starterDecks(), classes: [], usage: {}, results: [], plan: 'free', planPrompt: null };
 }
 function readState() {
   try {
     const saved = JSON.parse(localStorage.getItem(APP_KEY));
     if (saved && Array.isArray(saved.decks) && saved.decks.length) {
-      saved.classes ||= []; saved.usage ||= {}; saved.results ||= []; saved.plan ||= 'free';
+      saved.classes ||= []; saved.usage ||= {}; saved.results ||= []; saved.plan ||= 'free'; saved.planPrompt ||= null;
       return saved;
     }
   } catch (error) { console.warn('Memora could not read its saved demo data.', error); }
@@ -71,10 +71,12 @@ function readState() {
 let state = readState();
 let page = 'home';
 let selectedDeckId = null;
+let selectedClassId = null;
 let editingDeckId = null;
 let session = null;
 let liveEvent = null;
 let toastTimer = null;
+let planPrompt = state.planPrompt || null;
 
 const app = document.querySelector('#app');
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
@@ -107,7 +109,7 @@ function localNotice() {
 
 function welcomePage() {
   return `<main class="welcome-screen"><section class="welcome-card">
-    <div class="welcome-brand"><img src="/assets/memora-mark.svg" alt="Memora symbol"><strong>Memora</strong></div>
+    <div class="welcome-brand"><img src="assets/memora-mark.svg" alt="Memora symbol"><strong>Memora</strong></div>
     <h1>Make learning stick.</h1>
     <p>Create a local profile to try the study app. Your name helps make your profile symbol, and your username is what classmates would see.</p>
     <form data-form="profile">
@@ -122,18 +124,24 @@ function welcomePage() {
 function renderApp() {
   if (!state.profile) { app.innerHTML = welcomePage(); return; }
   const nav = [
-    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['events','✦','Live events'], ['profile','◉','Profile']
+    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['events','✦','Live events'], ['plans','$','Plans'], ['profile','◉','Profile']
   ];
-  const title = page === 'deck' ? (getDeck(selectedDeckId)?.title || 'My sets') : ({ home:'Home', sets:'My sets', classes:'Classes', events:'Live events', profile:'Profile', 'new-set':'Create a set' }[page] || 'Study');
+  const title = page === 'deck' ? (getDeck(selectedDeckId)?.title || 'My sets') : ({ home:'Home', sets:'My sets', classes:'Classes', events:'Live events', plans:'Plans', profile:'Profile', 'new-set':'Create a set' }[page] || 'Study');
+  const planLabel = state.plan === 'free' ? 'Free plan' : state.plan === 'monthly' ? 'Monthly plan' : 'Yearly plan';
   app.innerHTML = `<div class="app-shell">
-    <aside class="sidebar"><a class="brand" href="#" data-action="go" data-page="home"><img src="/assets/memora-mark.svg" alt=""><span class="brand-name">Memora<span class="brand-small">Study anything</span></span></a>
+    <aside class="sidebar"><a class="brand" href="#" data-action="go" data-page="home"><img src="assets/memora-mark.svg" alt=""><span class="brand-name">Memora<span class="brand-small">Study anything</span></span></a>
       <div class="nav-label">Your space</div><nav class="nav-list">${nav.map(([id,icon,label]) => `<button class="nav-button ${page === id ? 'active' : ''}" data-action="go" data-page="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('')}</nav>
-      <div class="sidebar-bottom"><div class="plan-mini"><strong>Free plan <span class="pill">Local demo</span></strong><p>One question practice and one test per set. Other study rounds stay unlimited.</p><button class="button small soft" data-action="go" data-page="profile">See plans</button></div></div>
+      <div class="sidebar-bottom"><div class="plan-mini"><strong>${planLabel} <span class="pill">Local demo</span></strong><p>${state.plan === 'free' ? 'One question practice and one test per set.' : 'Unlimited question practice and tests.'}</p><button class="button small soft" data-action="go" data-page="plans">See plans</button></div></div>
     </aside>
     <div class="main-area"><header class="topbar"><div class="crumb">Memora <span> / </span> <strong>${esc(title)}</strong></div><div class="top-actions"><span class="local-chip"><span class="local-dot"></span>Local only</span><button class="profile-button" data-action="go" data-page="profile"><span class="avatar">${esc(nameInitial())}</span><span class="profile-meta"><strong>${esc(displayName())}</strong><span>${state.profile.role === 'teacher' ? 'Teacher profile' : 'Student profile'}</span></span></button></div></header>
       <main class="content">${localNotice()}${renderPage()}</main>
     </div>
-  </div>`;
+  </div>${planPrompt ? renderPlanPrompt() : ''}`;
+}
+
+function renderPlanPrompt() {
+  const isLimit = planPrompt === 'limit';
+  return `<div class="plan-overlay" role="dialog" aria-modal="true" aria-labelledby="plan-prompt-title"><section class="plan-dialog"><p class="eyebrow">${isLimit ? 'Free limit reached' : 'Welcome to Memora'}</p><h2 id="plan-prompt-title">${isLimit ? 'Keep learning without limits' : 'Choose your study plan'}</h2><p>${isLimit ? 'You used the free round for this set. Choose a plan to keep taking tests and question practice.' : 'Pick the plan that fits you. This local demo does not take payment.'}</p><div class="plan-options"><button class="plan-option" data-action="choose-plan" data-plan="free"><strong>Free</strong><span>1 test and 1 question-practice round per set</span><b>$0</b></button><button class="plan-option featured" data-action="choose-plan" data-plan="monthly"><strong>Monthly membership</strong><span>Unlimited tests and question practice</span><b>$2/mo</b></button><button class="plan-option" data-action="choose-plan" data-plan="yearly"><strong>Yearly membership</strong><span>Unlimited tests and question practice</span><b>$18/yr</b></button></div><p class="helper">You can change your demo choice later from Plans in the side menu. No payment is taken.</p></section></div>`;
 }
 
 function renderPage() {
@@ -142,7 +150,9 @@ function renderPage() {
   if (page === 'deck') return renderDeck();
   if (page === 'new-set') return renderNewSet();
   if (page === 'classes') return renderClasses();
+  if (page === 'teacher-progress') return renderTeacherProgress();
   if (page === 'events') return renderEvents();
+  if (page === 'plans') return renderPlans();
   if (page === 'profile') return renderProfile();
   if (page === 'practice') return renderPracticePage();
   if (page === 'flashcards') return renderFlashcards();
@@ -156,13 +166,13 @@ function renderHome() {
   const first = state.profile.firstName || displayName();
   const mySets = state.decks.filter((deck) => deck.creator === displayName() || deck.creator === 'Memora team');
   const recent = mySets.slice(0, 3);
-  return `<section class="hero"><div class="hero-copy"><p class="eyebrow">A little progress adds up</p><h1>Hey ${esc(first)}, ready to learn?</h1><p>Study with cards you make or find a set that someone has already shared.</p><button class="button white" data-action="go" data-page="sets">Explore study sets <span>→</span></button></div><div class="hero-mark"><img src="/assets/memora-mark.svg" alt="Memora star symbol"></div></section>
+  return `<section class="hero"><div class="hero-copy"><p class="eyebrow">A little progress adds up</p><h1>Hey ${esc(first)}, ready to learn?</h1><p>Study with cards you make or find a set that someone has already shared.</p><button class="button white" data-action="go" data-page="sets">Explore study sets <span>→</span></button></div><div class="hero-mark"><img src="assets/memora-mark.svg" alt="Memora star symbol"></div></section>
     <div class="section-head"><div><h2>Pick up where you left off</h2><p>Choose a set to see all five ways to study it.</p></div><button class="link-button" data-action="go" data-page="sets">View all sets ↗</button></div>
     ${recent.length ? `<div class="grid cols-3">${recent.map(deckCard).join('')}</div>` : empty('▤','Your library is ready for its first set.','Make a set or explore ones other people shared.','Create a set','new-set')}
     <div class="section-head"><div><h2>Join your class</h2><p>Enter the code from your teacher.</p></div><button class="link-button" data-action="go" data-page="classes">My classes ↗</button></div>
     <div class="card quick-card"><div class="quick-icon" style="background:#eaf8f1">▣</div><div style="flex:1"><h3>Have a class code?</h3><p>Join a teacher’s class using the code they gave you.</p></div><form class="join-inline" data-form="join-class"><input class="input" name="code" maxlength="8" placeholder="Enter class code" aria-label="Class code" required><button class="button small" type="submit">Join class</button></form></div>
-    <div class="section-head"><div><h2>Live events</h2><p>A separate place for quick solo or team games.</p></div><button class="link-button" data-action="go" data-page="events">Open live events ↗</button></div>
-    <div class="grid cols-2"><div class="card quick-card"><div class="quick-icon" style="background:#f1edff">✦</div><div style="flex:1"><h3>Play with a 12-answer streak</h3><p>Join with an event code or host a practice round.</p></div><button class="button small soft" data-action="go" data-page="events">Go to events</button></div><div class="card quick-card"><div class="quick-icon" style="background:#fff1e6">＋</div><div style="flex:1"><h3>Make a study set</h3><p>Add questions for your own practice or class.</p></div><button class="button small outline" data-action="go" data-page="new-set">Create set</button></div></div>`;
+    <div class="section-head"><div><h2>Live events</h2></div><button class="link-button" data-action="go" data-page="events">Open live events ↗</button></div>
+    <div class="grid cols-2"><div class="card quick-card"><div class="quick-icon" style="background:#f1edff">✦</div><div style="flex:1"><h3>Play with a 12-answer streak</h3><p>A separate place for quick solo or team games. Join with an event code or host a practice round.</p></div><button class="button small soft" data-action="go" data-page="events">Go to events</button></div><div class="card quick-card"><div class="quick-icon" style="background:#fff1e6">＋</div><div style="flex:1"><h3>Make a study set</h3><p>Add questions for your own practice or class.</p></div><button class="button small outline" data-action="go" data-page="new-set">Create set</button></div></div>`;
 }
 function empty(icon, title, copy, button, pageName) {
   return `<div class="empty-state"><div class="empty-icon">${icon}</div><h3>${esc(title)}</h3><p>${esc(copy)}</p>${button ? `<button class="button small" data-action="go" data-page="${pageName}">${esc(button)}</button>` : ''}</div>`;
@@ -212,11 +222,26 @@ function cardEditor(index, values = {}) {
 }
 
 function renderClasses() {
-  const cards = state.classes.map((klass) => `<article class="class-card"><div class="class-card-top"><div><h3>${esc(klass.name)}</h3><p>${klass.teacher ? `Teacher: ${esc(klass.teacher)}` : 'Your class'} · ${klass.members.length} member${klass.members.length === 1 ? '' : 's'}</p></div><span class="pill">${klass.teacher === displayName() ? 'Teacher' : 'Joined'}</span></div><div class="class-code">${esc(klass.code)}</div><p>Class sets: ${klass.deckIds?.length ? klass.deckIds.map((id) => esc(getDeck(id)?.title || 'Study set')).join(', ') : 'No sets assigned yet.'}</p><div class="class-links"><button class="button small soft" data-action="copy-code" data-code="${esc(klass.code)}">Copy code</button>${klass.teacher === displayName() ? `<button class="button small outline" data-action="assign-set" data-id="${esc(klass.id)}">Choose class sets</button>` : ''}</div></article>`).join('');
+  const cards = state.classes.map((klass) => `<article class="class-card"><div class="class-card-top"><div><h3>${esc(klass.name)}</h3><p>${klass.teacher ? `Teacher: ${esc(klass.teacher)}` : 'Your class'} · ${klass.members.length} member${klass.members.length === 1 ? '' : 's'}</p></div><span class="pill">${klass.teacher === displayName() ? 'Teacher' : 'Joined'}</span></div><div class="class-code">${esc(klass.code)}</div><p>Class sets: ${klass.deckIds?.length ? klass.deckIds.map((id) => esc(getDeck(id)?.title || 'Study set')).join(', ') : 'No sets assigned yet.'}</p><div class="class-links"><button class="button small soft" data-action="copy-code" data-code="${esc(klass.code)}">Copy code</button>${klass.teacher === displayName() ? `<button class="button small outline" data-action="assign-set" data-id="${esc(klass.id)}">Choose class sets</button><button class="button small outline" data-action="teacher-progress" data-id="${esc(klass.id)}">View student progress</button>` : ''}</div></article>`).join('');
   return `${pageHeading('Classes','Join a teacher’s class with a code, or make a class and choose its name.', '')}
     <div class="grid cols-2"><section class="card"><h2 style="font-size:16px;margin-bottom:6px">Join a class</h2><p class="helper" style="margin-bottom:15px">Enter the class code your teacher gave you.</p><form data-form="join-class"><div class="field"><label>Class code</label><input name="code" required maxlength="8" placeholder="For example: MATH24"></div><button class="button" type="submit">Join class</button></form></section>
     <section class="card"><h2 style="font-size:16px;margin-bottom:6px">Create a teacher class</h2><p class="helper" style="margin-bottom:15px">Choose the class name. Memora makes a join code for you.</p><form data-form="create-class"><div class="field"><label>Class name</label><input name="name" required maxlength="55" placeholder="For example: Ms. Lee’s Science Class"></div><div class="field"><label>Starting study sets</label><select name="deckIds" multiple size="3" aria-label="Choose starting study sets">${state.decks.map((deck) => `<option value="${esc(deck.id)}">${esc(deck.title)}</option>`).join('')}</select><span class="helper">Hold Command (⌘) or Control while clicking to select more than one.</span></div><button class="button" type="submit">Create class and code</button></form></section></div>
     <div class="section-head"><div><h2>Your classes</h2><p>Codes and classes here are saved only in this browser.</p></div></div>${cards ? `<div class="grid cols-2">${cards}</div>` : empty('▣','No classes yet','Create a class or join one with your teacher’s code.')}`;
+}
+
+function renderTeacherProgress() {
+  const klass = state.classes.find((item) => item.id === selectedClassId);
+  if (!klass || klass.teacher !== displayName()) { page = 'classes'; return renderClasses(); }
+  const assigned = (klass.deckIds || []).map(getDeck).filter(Boolean);
+  const students = klass.members.filter((member) => member !== klass.teacher);
+  const rows = students.length ? students.map((student) => {
+    const completed = state.results.filter((result) => result.username === student && assigned.some((deck) => deck.id === result.deckId) && ['test','practice'].includes(result.kind));
+    const best = completed.reduce((top, result) => Math.max(top, Number(result.score) || 0), 0);
+    const percent = assigned.length ? Math.round(completed.length / assigned.length * 100) : 0;
+    return `<div class="progress-row"><div><strong>${esc(student)}</strong><span>${completed.length} of ${assigned.length} set${assigned.length === 1 ? '' : 's'} completed</span></div><div class="progress-track"><span style="width:${percent}%"></span></div><b>${best}%</b></div>`;
+  }).join('') : '<p class="helper">No students have joined this class yet.</p>';
+  const average = students.length ? Math.round(students.reduce((sum, student) => { const completed = state.results.filter((result) => result.username === student && assigned.some((deck) => deck.id === result.deckId) && ['test','practice'].includes(result.kind)); return sum + (assigned.length ? completed.length / assigned.length * 100 : 0); }, 0) / students.length) : 0;
+  return `${pageHeading(`${klass.name} progress`, 'See who completed assigned study sets and their best score percentage.', '<button class="button small outline" data-action="go" data-page="classes">← Back to classes</button>')}<div class="grid cols-3"><section class="card"><p class="eyebrow">Students</p><div class="result-score">${students.length}</div><p class="helper">Students in this class</p></section><section class="card"><p class="eyebrow">Average completion</p><div class="result-score">${average}%</div><p class="helper">Assigned sets completed</p></section><section class="card"><p class="eyebrow">Assigned sets</p><div class="result-score">${assigned.length}</div><p class="helper">Tests and question practice count</p></section></div><section class="card teacher-progress-card"><div class="section-head"><div><h2>Student chart</h2><p>Bars show completion. The percentage on the right is each student’s best score.</p></div></div><div class="progress-chart">${rows}</div></section>`;
 }
 
 function renderEvents() {
@@ -237,11 +262,28 @@ function renderLiveEvent() {
   return `<button class="back-link" data-action="leave-event">← Leave event</button><div class="session-wrap"><div class="session-top"><div class="session-progress"><span style="width:${Math.min(100,event.streak / 12 * 100)}%"></span></div><span class="session-counter">${event.streak} / 12 streak</span></div><section class="question-card"><p class="eyebrow">${event.gameType === 'teams' ? 'Team round' : 'Live event'} · Question ${event.questionIndex + 1}</p><h2>${esc(card?.prompt || '')}</h2>${event.feedback ? `<p class="session-feedback ${event.feedback === 'Correct!' ? 'good' : 'bad'}">${event.feedback} ${event.feedback === 'Correct!' ? `Streak: ${event.streak}` : 'Your streak is back to zero.'}</p>` : ''}<form data-form="event-answer" class="answer-list">${shuffle(options).map((option) => `<label class="answer-choice"><input type="radio" name="answer" value="${esc(option)}" required> ${esc(option)}</label>`).join('')}<div class="session-actions"><span class="helper">A wrong answer resets the streak.</span><button class="button" type="submit">Lock in answer</button></div></form></section></div>`;
 }
 
+function renderPlans() {
+  const plans = [
+    { id: 'free', name: 'Free', price: '$0', period: 'forever', copy: 'A good way to try Memora.', features: ['One practice test per set', 'One question-practice round per set', 'Unlimited flashcards, Block Blast, and matching'] },
+    { id: 'monthly', name: 'Monthly', price: '$2', period: 'per month', copy: 'More practice whenever you need it.', features: ['Unlimited tests and question practice', 'Unlimited flashcards, Block Blast, and matching', 'Use all available question styles'] },
+    { id: 'yearly', name: 'Yearly', price: '$18', period: 'per year', copy: 'The same membership for a year.', features: ['Everything in Monthly', 'Unlimited tests and question practice', 'One yearly price'] }
+  ];
+  return `${pageHeading('Membership plans', 'Choose the plan you want to use for your account.', '')}
+    <div class="plan-demo-note"><strong>Local demo:</strong> selecting a plan updates this browser’s demo access. This page does not collect payment details or start real billing.</div>
+    <div class="grid cols-3 plan-page-grid">${plans.map((plan) => `<section class="card plan-page-card ${plan.id === 'monthly' ? 'featured' : ''}">
+      <div class="plan-card-top"><div><p class="eyebrow">${plan.id === 'monthly' ? 'Most flexible' : plan.id === 'yearly' ? 'Best for a year' : 'Start here'}</p><h2>${plan.name}</h2></div>${state.plan === plan.id ? '<span class="pill green">Current</span>' : ''}</div>
+      <div class="plan-price"><strong>${plan.price}</strong><span>${plan.period}</span></div><p class="plan-copy">${plan.copy}</p>
+      <ul class="plan-features">${plan.features.map((feature) => `<li><span aria-hidden="true">✓</span>${feature}</li>`).join('')}</ul>
+      <button class="button ${state.plan === plan.id ? 'soft' : ''}" data-action="choose-plan" data-plan="${plan.id}">${state.plan === plan.id ? `Keep ${plan.name}` : `Choose ${plan.name}`}</button>
+    </section>`).join('')}</div>
+    <p class="helper plan-teacher-note">For a future teacher membership, the teacher’s plan can cover their own sets used by students in that teacher’s class. A student’s plan can cover sets made by other people.</p>`;
+}
+
 function renderProfile() {
   const myPlan = state.plan === 'free' ? 'Free' : state.plan;
   return `${pageHeading('Profile and plans','Your local profile and the study plans you described.','')}
     <div class="grid cols-2"><section class="card"><div style="display:flex;align-items:center;gap:13px;margin-bottom:18px"><span class="avatar" style="width:52px;height:52px;border-radius:17px;font-size:18px">${esc(nameInitial())}</span><div><h2 style="font-size:16px;margin:0 0 4px">${esc(displayName())}</h2><p class="helper" style="margin:0">${esc(state.profile.role)} profile · ${esc(state.profile.firstName)}</p></div></div><div class="settings-list"><div class="setting-line"><div><strong>First name</strong><span>Used for the profile symbol</span></div><b>${esc(state.profile.firstName)}</b></div><div class="setting-line"><div><strong>Birthday</strong><span>Optional</span></div><b>${state.profile.birthday ? esc(state.profile.birthday) : 'Not added'}</b></div><div class="setting-line"><div><strong>Current plan</strong><span>Payments are not connected in this local demo</span></div><b>${myPlan}</b></div></div></section>
-    <section class="card"><h2 style="font-size:16px;margin-bottom:5px">Plans</h2><p class="helper" style="margin-bottom:15px">The amounts below are a preview only. No payment will be taken.</p><div class="settings-list"><div class="setting-line"><div><strong>Free</strong><span>One test and one question-practice session per set. Unlimited flashcards, Block Blast, and matching.</span></div><b>$0</b></div><div class="setting-line"><div><strong>Monthly membership</strong><span>Unlimited question-practice and tests.</span></div><b>$2/mo</b></div><div class="setting-line"><div><strong>Yearly membership</strong><span>Same membership, paid yearly.</span></div><b>$18/yr</b></div></div><p class="helper" style="margin:12px 0 0">Teacher membership will apply to that teacher’s own sets in their class. A student’s plan applies to sets made by other people.</p></section></div>
+    <section class="card"><h2 style="font-size:16px;margin-bottom:5px">Plans</h2><p class="helper" style="margin-bottom:15px">The amounts below are a preview only. No payment will be taken.</p><div class="settings-list"><div class="setting-line"><div><strong>Free</strong><span>One test and one question-practice session per set. Unlimited flashcards, Block Blast, and matching.</span></div><b>$0</b></div><div class="setting-line"><div><strong>Monthly membership</strong><span>Unlimited question-practice and tests.</span></div><b>$2/mo</b></div><div class="setting-line"><div><strong>Yearly membership</strong><span>Same membership, paid yearly.</span></div><b>$18/yr</b></div></div><p class="helper" style="margin:12px 0 0">Teacher membership will apply to that teacher’s own sets in their class. A student’s plan applies to sets made by other people.</p><button class="button small soft" style="margin-top:14px" data-action="go" data-page="plans">View and choose a plan</button></section></div>
     <div class="section-head"><div><h2>Local data</h2><p>Your profile and study sets are saved in this browser on this device.</p></div></div><div class="card"><div class="setting-line"><div><strong>Switch profile</strong><span>Return to the local profile setup screen.</span></div><button class="button small outline" data-action="switch-profile">Switch</button></div><div class="setting-line"><div><strong>Reset the demo</strong><span>Remove this browser’s Memora demo profile and sets.</span></div><button class="button small danger" data-action="reset-demo">Reset demo</button></div></div>`;
 }
 
@@ -271,7 +313,7 @@ function renderPracticePage() {
   const deck = getDeck(selectedDeckId); if (!deck) { page = 'sets'; return renderSets(); }
   if (!session || session.kind !== 'practice') return renderPracticeSetup(deck);
   const task = currentPracticeTask();
-  if (!task) { getUsage(deck.id).practiceComplete = true; save(); return renderStudyResult('Question practice complete', `You answered all ${deck.cards.length} cards in each chosen style.`, 'Question practice'); }
+  if (!task) { const usage=getUsage(deck.id); if (!usage.practiceComplete) { usage.practiceComplete = true; state.results.push({deckId:deck.id,kind:'practice',username:displayName(),score:100,time:0}); } if (state.plan === 'free') { state.planPrompt = 'limit'; planPrompt = 'limit'; } save(); return renderStudyResult('Question practice complete', `You answered all ${deck.cards.length} cards in each chosen style.`, 'Question practice'); }
   if (session.awaitingNext) return `<button class="back-link" data-action="stop-session">← ${esc(deck.title)}</button><section class="result-card"><div style="font-size:31px">✨</div><h2>Correct!</h2><p>That answer is done for this question style. Keep going until every selected style is complete.</p><div class="result-actions"><button class="button" data-action="continue-practice">Next question</button></div></section>`;
   const question = practiceQuestion(task); const index = (getUsage(deck.id).practiceDone || []).length; const total=practiceTaskTotal(deck,session.types);
   return `<button class="back-link" data-action="stop-session">← ${esc(deck.title)}</button><div class="session-wrap"><div class="session-top"><div class="session-progress"><span style="width:${Math.min(100,index / total * 100)}%"></span></div><span class="session-counter">${index + 1} of ${total}</span></div><section class="question-card"><p class="eyebrow">${esc(FORMAT_LABELS[task.type])}</p><h2>${esc(question.prompt)}</h2>
@@ -279,7 +321,7 @@ function renderPracticePage() {
 }
 function renderPracticeSetup(deck) {
   const usage = getUsage(deck.id);
-  if (usage.practiceComplete) return renderStudyResult('Question practice complete', 'You have used the free question-practice round for this set.', 'Question practice');
+  if (state.plan === 'free' && usage.practiceComplete) return renderStudyResult('Question practice complete', 'You have used the free question-practice round for this set.', 'Question practice');
   if (usage.practiceStarted) return `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="result-card"><div style="font-size:30px">↗</div><h2>Continue your question practice</h2><p>Your progress is saved for this set. Keep going until each selected question style is answered correctly.</p><div class="result-actions"><button class="button" data-action="resume-practice" data-id="${esc(deck.id)}">Resume round</button></div></section>`;
   const available=Object.entries(FORMAT_LABELS).filter(([id])=>deck.cards.some((card)=>(card.formats||Object.keys(FORMAT_LABELS)).includes(id)));
   return `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="card form-card"><h2>Set up question practice</h2><p>Choose one or more styles. If you choose more than one, you will get each card once in every selected style.</p><form data-form="practice-setup" data-id="${esc(deck.id)}"><div class="field"><span class="field-label">Question styles</span><div class="check-row">${available.map(([id,label],index) => `<label class="check-label"><input type="checkbox" name="formats" value="${id}" ${index === 0 ? 'checked' : ''}>${label}</label>`).join('')}</div></div><div class="field"><label>Spelling check</label><select name="spelling"><option value="strict">Exact spelling</option><option value="relaxed">Relaxed spelling (allows a tiny typo)</option></select></div><p class="helper">A free account gets one question-practice session per set. Correct answers leave the round; missed answers stay until you get them right.</p><div class="session-actions"><span>${usagePill(false)}</span><button class="button" type="submit">Start practice</button></div></form></section>`;
@@ -327,7 +369,7 @@ function renderTestPage() {
   const deck = getDeck(selectedDeckId); if (!deck) { page='sets'; return renderSets(); }
   const usage = getUsage(deck.id);
   if (!session || session.kind !== 'test') {
-    if (usage.testStarted) return usage.testResult ? renderTestResult(deck, usage.testResult) : `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="result-card"><h2>This set’s free test is used</h2><p>You get one free test per set. A paid plan would allow more tries.</p><div class="result-actions"><button class="button" data-action="go" data-page="deck">Back to set</button></div></section>`;
+    if (state.plan === 'free' && usage.testStarted) return usage.testResult ? renderTestResult(deck, usage.testResult) : `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="result-card"><h2>This set’s free test is used</h2><p>You get one free test per set. A paid plan would allow more tries.</p><div class="result-actions"><button class="button" data-action="go" data-page="deck">Back to set</button></div></section>`;
     const available=Object.entries(FORMAT_LABELS).filter(([id])=>deck.cards.some((card)=>(card.formats||Object.keys(FORMAT_LABELS)).includes(id)));
     return `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="card form-card"><h2>Build a test</h2><p>Choose the question styles and how many cards to include.</p><form data-form="test-setup" data-id="${esc(deck.id)}"><div class="field"><span class="field-label">Question styles</span><div class="check-row">${available.map(([id,label],index) => `<label class="check-label"><input type="checkbox" name="formats" value="${id}" ${index===0?'checked':''}>${label}</label>`).join('')}</div></div><div class="field"><label>Number of questions</label><select name="count">${Array.from({length:deck.cards.length},(_,i)=>`<option value="${i+1}" ${i===Math.min(4,deck.cards.length)-1?'selected':''}>${i+1}</option>`).join('')}</select><span class="helper">This first version uses one selected style for each question.</span></div><div class="session-actions"><span>${usagePill(false)}</span><button class="button" type="submit">Start test</button></div></form></section>`;
   }
@@ -341,7 +383,9 @@ function finishTest() {
   const deck = getDeck(session.deckId); const correct = session.answers.filter((answer) => answer.correct).length;
   const result = { score: Math.round(correct / session.tasks.length * 100), correct, total: session.tasks.length, time: (Date.now() - session.startedAt) / 1000 };
   session.result = result; const usage = getUsage(deck.id); usage.testStarted = true; usage.testComplete = true; usage.testResult = result;
-  state.results.push({ deckId: deck.id, kind: 'test', username: displayName(), score: result.score, time: result.time }); save();
+  state.results.push({ deckId: deck.id, kind: 'test', username: displayName(), score: result.score, time: result.time });
+  if (state.plan === 'free') { state.planPrompt = 'limit'; planPrompt = 'limit'; }
+  save();
 }
 function renderTestResult(deck, result) {
   return `<button class="back-link" data-action="go" data-page="deck">← ${esc(deck.title)}</button><section class="result-card"><p class="eyebrow">Test result</p><div class="result-score">${result.score}%</div><h2>${result.correct} out of ${result.total} correct</h2><p>Finished in ${formatTime(result.time)}. The class test board ranks higher scores first, then faster times.</p><div class="result-actions"><button class="button" data-action="go" data-page="deck">Back to set</button></div></section>`;
@@ -382,10 +426,12 @@ function clearBlockLines(board) {
 function onClick(event) {
   const target = event.target.closest('[data-action]'); if (!target) return;
   const action = target.dataset.action; const id = target.dataset.id;
-  if (action === 'go') { page = target.dataset.page; session = null; selectedDeckId = page === 'deck' ? selectedDeckId : null; if (page==='new-set') editingDeckId=null; renderApp(); window.scrollTo(0,0); }
+  if (action === 'choose-plan') { state.plan = target.dataset.plan; state.planPrompt = null; planPrompt = null; save(); renderApp(); toast(`${state.plan === 'free' ? 'Free' : state.plan === 'monthly' ? 'Monthly' : 'Yearly'} plan selected.`); }
+  else if (action === 'go') { page = target.dataset.page; session = null; selectedDeckId = page === 'deck' ? selectedDeckId : null; if (page==='new-set') editingDeckId=null; renderApp(); window.scrollTo(0,0); }
   else if (action === 'open-deck') { selectedDeckId = id; page='deck'; session=null; renderApp(); window.scrollTo(0,0); }
+  else if (action === 'teacher-progress') { selectedClassId=id; page='teacher-progress'; session=null; renderApp(); window.scrollTo(0,0); }
   else if (action === 'edit-deck') { editingDeckId=id; selectedDeckId=id; page='new-set'; session=null; renderApp(); window.scrollTo(0,0); }
-  else if (action === 'mode') { if (!selectedDeckId) return; page = target.dataset.mode; session=null; renderApp(); window.scrollTo(0,0); }
+  else if (action === 'mode') { if (!selectedDeckId) return; const mode=target.dataset.mode; const usage=getUsage(selectedDeckId); const used=(mode==='practice'&&usage.practiceStarted)||(mode==='test'&&usage.testStarted); if (state.plan==='free' && used && (mode==='practice'||mode==='test')) { state.planPrompt='limit'; planPrompt='limit'; save(); renderApp(); return; } page = mode; session=null; renderApp(); window.scrollTo(0,0); }
   else if (action === 'add-card') { const holder = document.querySelector('#card-editors'); holder.insertAdjacentHTML('beforeend', cardEditor(holder.querySelectorAll('[data-card-editor]').length+1)); }
   else if (action === 'remove-card') { target.closest('[data-card-editor]').remove(); document.querySelectorAll('[data-card-editor] .card-editor-head span').forEach((el,index)=>el.textContent=`Card ${index+1}`); }
   else if (action === 'resume-practice') { selectedDeckId=id; page='practice'; const usage=getUsage(id); session={kind:'practice',deckId:id,types:usage.practiceTypes,spelling:usage.practiceSpelling||'strict'}; renderApp(); }
@@ -458,7 +504,7 @@ function onSubmit(event) {
   if (kind==='profile') {
     const firstName=String(data.get('firstName')).trim(); const username=String(data.get('username')).trim();
     if (!firstName || username.length<2) return;
-    state.profile={firstName,username,birthday:String(data.get('birthday')||''),role:String(data.get('role')||'student')}; save(); renderApp(); toast(`Welcome to Memora, ${firstName}!`);
+    state.profile={firstName,username,birthday:String(data.get('birthday')||''),role:String(data.get('role')||'student')}; state.planPrompt='welcome'; planPrompt='welcome'; save(); renderApp(); toast(`Welcome to Memora, ${firstName}!`);
   } else if (kind==='create-deck') {
     const editors=[...form.querySelectorAll('[data-card-editor]')];
     const cards=editors.map((editor,index)=>({id:editor.querySelector('[name="cardId"]').value||`c-${Date.now()}-${index}`,prompt:editor.querySelector('[name="prompt"]').value.trim(),answer:editor.querySelector('[name="answer"]').value.trim(),wrong:editor.querySelector('[name="wrong"]').value.trim()||'Not sure',alternatives:editor.querySelector('[name="alternatives"]').value.split(',').map((s)=>s.trim()).filter(Boolean),formats:[...editor.querySelectorAll('[name="formats"]:checked')].map((input)=>input.value)}));
@@ -483,7 +529,7 @@ function onSubmit(event) {
     const deckId=form.dataset.id; selectedDeckId=deckId; session={kind:'flashcards',deckId,cards:[...getDeck(deckId).cards],index:0,flipped:false,front:String(data.get('front')),known:[],wrong:[]}; page='flashcards'; renderApp();
   } else if (kind==='test-setup') {
     const deckId=form.dataset.id; const deck=getDeck(deckId); const formats=data.getAll('formats'); if (!formats.length) { toast('Choose at least one question style.'); return; }
-    const cards=shuffle(deck.cards.filter((card)=>formats.some((type)=>(card.formats||Object.keys(FORMAT_LABELS)).includes(type)))).slice(0,Number(data.get('count')));
+    const count=Number(data.get('count')); const cards=shuffle(deck.cards.filter((card)=>formats.some((type)=>(card.formats||Object.keys(FORMAT_LABELS)).includes(type)))).slice(0,count);
     const pool=cards.map((card)=>{
       const supported=formats.filter((type)=>(card.formats||Object.keys(FORMAT_LABELS)).includes(type));
       const type=supported[Math.floor(Math.random()*supported.length)];

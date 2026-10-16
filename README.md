@@ -1,6 +1,6 @@
 # Memora local demo
 
-Memora is a small study app demo that runs on your computer. It does not need packages or an online account.
+Memora is a small study app demo that runs on your computer. The app itself does not need packages or an online account; browser tests use Node.js, pnpm, and Playwright.
 
 ## Open it on your computer
 
@@ -8,6 +8,37 @@ Memora is a small study app demo that runs on your computer. It does not need pa
 2. Run `python3 -m http.server 4173 --bind 127.0.0.1`.
 3. Open `http://localhost:4173` in your browser.
 4. To stop the local website, go back to Terminal and press Control+C.
+
+## Run browser tests
+
+Playwright checks the app in Chromium.
+
+1. Install Node.js, then run `pnpm install`.
+2. Run `pnpm exec playwright install chromium` once.
+3. Run `pnpm test`.
+
+The Playwright config starts the Memora server for you on port 4173, so you do not need to start a second server in another Terminal window.
+
+Useful commands:
+
+```bash
+# Run every Playwright test
+pnpm test
+
+# Run one test file
+pnpm exec playwright test tests/smoke.spec.js
+
+# Open the browser while the test runs
+pnpm run test:headed
+
+# Run one test by its name
+pnpm exec playwright test -g "Memora loads"
+
+# Open the HTML report after a test run
+pnpm exec playwright show-report
+```
+
+Test files belong in `tests/` and should end in `.spec.js`. Use accessible locators such as roles, labels, and placeholders when finding buttons and form fields. Add new tests when an important user flow needs a repeatable check.
 
 ## What this version can do
 
