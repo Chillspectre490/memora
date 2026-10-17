@@ -124,14 +124,12 @@ function welcomePage() {
 function renderApp() {
   if (!state.profile) { app.innerHTML = welcomePage(); return; }
   const nav = [
-    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['events','✦','Live events'], ['plans','$','Plans'], ['profile','◉','Profile']
+    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['events','✦','Live events'], ['profile','◉','Profile']
   ];
-  const title = page === 'deck' ? (getDeck(selectedDeckId)?.title || 'My sets') : ({ home:'Home', sets:'My sets', classes:'Classes', events:'Live events', plans:'Plans', profile:'Profile', 'new-set':'Create a set' }[page] || 'Study');
-  const planLabel = state.plan === 'free' ? 'Free plan' : state.plan === 'monthly' ? 'Monthly plan' : 'Yearly plan';
+  const title = page === 'deck' ? (getDeck(selectedDeckId)?.title || 'My sets') : ({ home:'Home', sets:'My sets', classes:'Classes', events:'Live events', profile:'Profile', 'new-set':'Create a set' }[page] || 'Study');
   app.innerHTML = `<div class="app-shell">
     <aside class="sidebar"><a class="brand" href="#" data-action="go" data-page="home"><img src="assets/memora-mark.svg" alt=""><span class="brand-name">Memora<span class="brand-small">Study anything</span></span></a>
       <div class="nav-label">Your space</div><nav class="nav-list">${nav.map(([id,icon,label]) => `<button class="nav-button ${page === id ? 'active' : ''}" data-action="go" data-page="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('')}</nav>
-      <div class="sidebar-bottom"><div class="plan-mini"><strong>${planLabel} <span class="pill">Local demo</span></strong><p>${state.plan === 'free' ? 'One question practice and one test per set.' : 'Unlimited question practice and tests.'}</p><button class="button small soft" data-action="go" data-page="plans">See plans</button></div></div>
     </aside>
     <div class="main-area"><header class="topbar"><div class="crumb">Memora <span> / </span> <strong>${esc(title)}</strong></div><div class="top-actions"><span class="local-chip"><span class="local-dot"></span>Local only</span><button class="profile-button" data-action="go" data-page="profile"><span class="avatar">${esc(nameInitial())}</span><span class="profile-meta"><strong>${esc(displayName())}</strong><span>${state.profile.role === 'teacher' ? 'Teacher profile' : 'Student profile'}</span></span></button></div></header>
       <main class="content">${localNotice()}${renderPage()}</main>
@@ -152,7 +150,7 @@ function renderPage() {
   if (page === 'classes') return renderClasses();
   if (page === 'teacher-progress') return renderTeacherProgress();
   if (page === 'events') return renderEvents();
-  if (page === 'plans') return renderPlans();
+
   if (page === 'profile') return renderProfile();
   if (page === 'practice') return renderPracticePage();
   if (page === 'flashcards') return renderFlashcards();
@@ -247,7 +245,7 @@ function renderTeacherProgress() {
 function renderEvents() {
   if (liveEvent) return renderLiveEvent();
   const deckOptions = state.decks.map((deck) => `<option value="${esc(deck.id)}">${esc(deck.title)}</option>`).join('');
-  return `${pageHeading('Live events','Live events are separate from the five study sections. First to a streak of 12 correct answers wins.','')}
+  return `${pageHeading('Live events','','')}
     <div class="grid cols-2"><section class="card"><h2 style="font-size:16px;margin-bottom:6px">Host an event</h2><p class="helper" style="margin-bottom:16px">Choose a set and how people will play. You get a code to share.</p><form data-form="create-event"><div class="field"><label>Question set</label><select name="deckId" required>${deckOptions}</select></div><div class="field"><span class="field-label">Game type</span><div class="team-options"><label class="team-option"><input type="radio" name="gameType" value="solo" checked><span><strong>Solo</strong><span>Each player gets their own 12-answer streak.</span></span></label><label class="team-option"><input type="radio" name="gameType" value="teams"><span><strong>Teams</strong><span>Up to four players on a team. A wrong answer resets that team’s streak.</span></span></label></div></div><div class="field hidden" id="team-settings"><label>Team setup</label><select name="teamSetup"><option value="random">Random teams</option><option value="choose">Players choose teams</option></select><label style="margin-top:6px">Players per team (up to four)</label><select name="teamSize"><option>2</option><option>3</option><option selected>4</option></select></div><button class="button" type="submit">Create event code <span>→</span></button></form></section>
     <section class="card"><h2 style="font-size:16px;margin-bottom:6px">Join an event</h2><p class="helper" style="margin-bottom:16px">Enter the code from the host.</p><form data-form="join-event"><div class="field"><label>Event code</label><input name="code" maxlength="8" required placeholder="Enter event code"></div><button class="button soft" type="submit">Join event</button></form><div class="helper" style="margin-top:13px">In this local demo, the event must have been created in this same browser.</div></section></div>
     <div class="section-head"><div><h2>How the streak works</h2><p>Questions come from the chosen study set.</p></div></div><div class="grid cols-3"><div class="card quick-card"><div class="quick-icon" style="background:#f1edff">1</div><div><h3>Answer a question</h3><p>Event questions are multiple choice.</p></div></div><div class="card quick-card"><div class="quick-icon" style="background:#eaf8f1">12</div><div><h3>Keep the streak</h3><p>One wrong answer resets the streak.</p></div></div><div class="card quick-card"><div class="quick-icon" style="background:#fff1e6">★</div><div><h3>Claim the win</h3><p>Reach 12 correct answers in a row.</p></div></div></div>`;
