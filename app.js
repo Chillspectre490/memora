@@ -124,7 +124,7 @@ function welcomePage() {
 function renderApp() {
   if (!state.profile) { app.innerHTML = welcomePage(); return; }
   const nav = [
-    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['events','✦','Live events'], ['profile','◉','Profile']
+    ['home','⌂','Home'], ['sets','▤','My sets'], ['classes','▣','Classes'], ['profile','◉','Profile']
   ];
   const title = page === 'deck' ? (getDeck(selectedDeckId)?.title || 'My sets') : ({ home:'Home', sets:'My sets', classes:'Classes', events:'Live events', profile:'Profile', 'new-set':'Create a set' }[page] || 'Study');
   app.innerHTML = `<div class="app-shell">
@@ -169,8 +169,7 @@ function renderHome() {
     ${recent.length ? `<div class="grid cols-3">${recent.map(deckCard).join('')}</div>` : empty('▤','Your library is ready for its first set.','Make a set or explore ones other people shared.','Create a set','new-set')}
     <div class="section-head"><div><h2>Join your class</h2><p>Enter the code from your teacher.</p></div><button class="link-button" data-action="go" data-page="classes">My classes ↗</button></div>
     <div class="card quick-card"><div class="quick-icon" style="background:#eaf8f1">▣</div><div style="flex:1"><h3>Have a class code?</h3><p>Join a teacher’s class using the code they gave you.</p></div><form class="join-inline" data-form="join-class"><input class="input" name="code" maxlength="8" placeholder="Enter class code" aria-label="Class code" required><button class="button small" type="submit">Join class</button></form></div>
-    <div class="section-head"><div><h2>Live events</h2></div><button class="link-button" data-action="go" data-page="events">Open live events ↗</button></div>
-    <div class="grid cols-2"><div class="card quick-card"><div class="quick-icon" style="background:#f1edff">✦</div><div style="flex:1"><h3>Play with a 12-answer streak</h3><p>A separate place for quick solo or team games. Join with an event code or host a practice round.</p></div><button class="button small soft" data-action="go" data-page="events">Go to events</button></div><div class="card quick-card"><div class="quick-icon" style="background:#fff1e6">＋</div><div style="flex:1"><h3>Make a study set</h3><p>Add questions for your own practice or class.</p></div><button class="button small outline" data-action="go" data-page="new-set">Create set</button></div></div>`;
+    <div class="section-head"><div><h2>Create a study set</h2><p>Add questions for your own practice or class.</p></div><button class="link-button" data-action="go" data-page="new-set">Create a set ↗</button></div>`;
 }
 function empty(icon, title, copy, button, pageName) {
   return `<div class="empty-state"><div class="empty-icon">${icon}</div><h3>${esc(title)}</h3><p>${esc(copy)}</p>${button ? `<button class="button small" data-action="go" data-page="${pageName}">${esc(button)}</button>` : ''}</div>`;
