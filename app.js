@@ -253,7 +253,7 @@ function renderEvents() {
 function renderLiveEvent() {
   const event = liveEvent;
   const deck = getDeck(event.deckId);
-  if (event.phase === 'lobby') return `<button class="back-link" data-action="leave-event">← Live events</button><section class="result-card"><p class="eyebrow">Event lobby · ${event.gameType === 'teams' ? 'Team game' : 'Solo game'}</p><h2>${esc(deck?.title || 'Study set')}</h2><p>Share this code with players who are in this local demo.</p><div class="event-code">${esc(event.code)}</div><p>${event.gameType === 'teams' ? `${event.teamSize} players per team · ${event.teamSetup === 'random' ? 'random teams' : 'players choose teams'}` : 'Each player has their own streak.'}</p><div class="result-actions"><button class="button" data-action="start-event">Start event</button><button class="button outline" data-action="leave-event">Cancel</button></div></section>`;
+  if (event.phase === 'lobby') return `<button class="back-link" data-action="leave-event">← Live events</button><section class="result-card"><p class="eyebrow">Event lobby · ${event.gameType === 'teams' ? 'Team game' : 'Solo game'}</p><h2>${esc(deck?.title || 'Study set')}</h2><p>Share this code with players who are in this local demo.</p><div class="event-code">${esc(event.code)}</div><p>${event.gameType === 'teams' ? `${event.teamSize} players per team · ${event.teamSetup === 'random' ? 'random teams' : 'players choose teams'}` : 'Each player has their own streak.'}</p><div class="result-actions"><button class="button" data-action="start-event">Start event</button><button class="button soft" data-action="join-host-event">Join as a player</button><button class="button outline" data-action="leave-event">Cancel</button></div></section>`;
   if (event.phase === 'finished') return `<button class="back-link" data-action="leave-event">← Live events</button><section class="result-card"><div style="font-size:32px">🏆</div><p class="eyebrow">Event finished</p><h2>${esc(event.winner || displayName())} won!</h2><p>Reached 12 correct answers in a row.</p><div class="event-streak"><strong>12 / 12</strong><span>winning streak</span></div><div class="result-actions"><button class="button" data-action="leave-event">Back to live events</button></div></section>`;
   const card = deck?.cards[event.questionIndex % (deck?.cards.length || 1)];
   const options = card ? card.options || deck.cards.map((item) => item.answer).slice(0,4) : [];
@@ -447,6 +447,7 @@ function onClick(event) {
   else if (action === 'copy-code') { if (navigator.clipboard?.writeText) navigator.clipboard.writeText(target.dataset.code).then(()=>toast('Class code copied.')).catch(()=>toast(`Class code: ${target.dataset.code}`)); else toast(`Class code: ${target.dataset.code}`); }
   else if (action === 'assign-set') assignSet(id)
   else if (action === 'start-event') { liveEvent.phase='playing'; renderApp(); }
+  else if (action === 'join-host-event') { liveEvent.isHost=false; liveEvent.phase='playing'; renderApp(); }
   else if (action === 'leave-event') { liveEvent=null; page='events'; renderApp(); }
   else if (action === 'continue-test') { session.awaitingNext=false; renderApp(); }
   else if (action === 'switch-profile') { state.profile=null; save(); renderApp(); }
